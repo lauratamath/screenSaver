@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <SDL2\SDL.h>
 #include <complex>
+#include <omp.h>
+#include <string>
 
-const int WIDTH = 800, HEIGHT = 600, MAX_ITERATIONS = 10;
+const int WIDTH = 640, HEIGHT = 480, MAX_ITERATIONS = 10;
 // const double minBound = -4.0, maxBound = 4.0;
 double funcC = 1.0;
-double a = 2.0;
+double a = 0.1;
 
 
 std::complex<double> func(std::complex<double> x) {
@@ -26,10 +28,10 @@ std::complex<double> rootThree(-0.5, -sqrt(3)/2);
 int main(int argc, char *argv[]) {
   SDL_Init(SDL_INIT_EVERYTHING);
 
-  SDL_Window *window;
-  SDL_Renderer *renderer;
+  SDL_Window *window = SDL_CreateWindow("Newtons Fractal", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI);
+  SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);;
   
-  SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_BORDERLESS, &window, &renderer);
+  // SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_BORDERLESS, &window, &renderer);
 
   if (NULL == window) {
     std::cout << "Could not create window: "<< SDL_GetError() << std::endl;
@@ -47,7 +49,10 @@ int main(int argc, char *argv[]) {
 
   // Lifecicle
   while ( running ) {
-    while (SDL_PollEvent(&windowEvent)) {
+
+    // TODO: calculate and show fps
+    double start_time = SDL_GetTicks();
+    if (SDL_PollEvent(&windowEvent)) {
       switch (windowEvent.type) {
         case SDL_QUIT:
           running = false;
@@ -68,24 +73,18 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Clear the renderer
-    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    // SDL_RenderClear(renderer);
-
     // Iterate each pixel
+    #pragma omp parallel for schedule(dynamic)
     for (int x = 0; x < WIDTH; x++) {
+      #pragma omp parallel for schedule(dynamic)
       for (int y =0 ; y < HEIGHT; y++) {
         // scaled_value = (value - min) / (max - min) * (new_max - new_min) + new_min
         double zx = (1.0 * x - WIDTH / 2.0) / (WIDTH / 4.0);
         double zy = (1.0 * y - HEIGHT / 2.0) / (HEIGHT / 4.0);
 
-        // std::cout << "zx: " << zx << std::endl;
-        // std::cout << "zy: " << zx << std::endl;
-        // std::cout << "-----" << std::endl;
-
         std::complex<double> z(zx, zy);
 
-        double tolerance = 0.01;
+        double tolerance = 0.001;
 
         int iter = 0;
 
@@ -100,55 +99,44 @@ int main(int argc, char *argv[]) {
           std::complex<double> gdiff = z - rootTwo;
           std::complex<double> bdiff = z - rootThree;
 
-          if (std::norm(rdiff.real()) < tolerance && std::norm(rdiff.imag()) < tolerance) {
+          if (std::norm(rdiff) < tolerance) {
             r = 255 - iter % 255;
-            // SDL_SetRenderDrawColor(renderer, r, g, b, 255);
             break;
           }
-          else if (std::norm(gdiff.real()) < tolerance && std::norm(gdiff.imag()) < tolerance) {
+          else if (std::norm(gdiff) < tolerance) {
             g = 255 - iter % 255;
-            // SDL_SetRenderDrawColor(renderer, r, g, b, 255);
             break;
           }
-          else if (std::norm(bdiff.real()) < tolerance && std::norm(bdiff.imag()) < tolerance) {
+          else if (std::norm(bdiff) < tolerance) {
             b = 255 - iter % 255;
-            // SDL_SetRenderDrawColor(renderer, r, g, b, 255);
             break;
           }
           iter++;
         }
-        // std::cout << "mappedx: " << mappedx << std::endl;
-        // SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-        // SDL_RenderDrawPoint(renderer, x, y);
         // Map the number of iterations to a color
         uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r, g, b);
-        pixels[y * WIDTH + x] = color;
+        #pragma omp critical
+        {
+          pixels[y * WIDTH + x] = color;
+        }
       }
-      // break;
     }
     
-    // Present the renderer
-    // SDL_RenderPresent(renderer);
-    // break;
-    // Update the texture with the pixel data
-    SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
+
     // Render the texture to the screen
+    SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
 
     // funcC += 0.01;
     a += 0.01;
+    
+    // Debug
+    // std::cout << "A: " << a << std::endl;
   }
 
-  // // Update the texture with the pixel data
-  // SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
-  // // Render the texture to the screen
-  // SDL_RenderClear(renderer);
-  // SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-  // SDL_RenderPresent(renderer);
-  // SDL_Delay(3000);
-
+  SDL_UnlockTexture(texture);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
