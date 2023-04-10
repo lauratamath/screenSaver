@@ -73,18 +73,22 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // allocate memory for r, g, and b with one element per pixel
+    int *r_values = new int[WIDTH * HEIGHT];
+    int *g_values = new int[WIDTH * HEIGHT];
+    int *b_values = new int[WIDTH * HEIGHT];
+
     // Iterate each pixel
-    #pragma omp parallel for schedule(dynamic)
-    for (int x = 0; x < WIDTH; x++) {
-      #pragma omp parallel for schedule(dynamic)
-      for (int y =0 ; y < HEIGHT; y++) {
+    #pragma omp parallel for
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
         // scaled_value = (value - min) / (max - min) * (new_max - new_min) + new_min
         double zx = (1.0 * x - WIDTH / 2.0) / (WIDTH / 4.0);
         double zy = (1.0 * y - HEIGHT / 2.0) / (HEIGHT / 4.0);
 
         std::complex<double> z(zx, zy);
 
-        double tolerance = 0.001;
+        double tolerance = 0.01;
 
         int iter = 0;
 
@@ -99,28 +103,40 @@ int main(int argc, char *argv[]) {
           std::complex<double> gdiff = z - rootTwo;
           std::complex<double> bdiff = z - rootThree;
 
-          if (std::norm(rdiff) < tolerance) {
+          if (std::norm(rdiff.real()) < tolerance && std::norm(rdiff.imag()) < tolerance) {
             r = 255 - iter % 255;
             break;
           }
-          else if (std::norm(gdiff) < tolerance) {
+          else if (std::norm(gdiff.real()) < tolerance && std::norm(gdiff.imag()) < tolerance) {
             g = 255 - iter % 255;
             break;
           }
-          else if (std::norm(bdiff) < tolerance) {
+          else if (std::norm(bdiff.real()) < tolerance && std::norm(bdiff.imag()) < tolerance) {
             b = 255 - iter % 255;
             break;
           }
           iter++;
         }
-        // Map the number of iterations to a color
-        uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r, g, b);
-        #pragma omp critical
-        {
-          pixels[y * WIDTH + x] = color;
-        }
+
+        r_values[y * WIDTH + x] = r;
+        g_values[y * WIDTH + x] = g;
+        b_values[y * WIDTH + x] = b;
       }
     }
+
+    // Add r, g, and b values into pixels array
+    #pragma omp parallel for
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
+        uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r_values[y * WIDTH + x], g_values[y * WIDTH + x], b_values[y * WIDTH + x]);
+        pixels[y * WIDTH + x] = color;
+      }
+    }
+    
+    delete[] r_values;
+    delete[] g_values;
+    delete[] b_values;
+    
     
 
     // Render the texture to the screen
