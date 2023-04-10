@@ -1,6 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
-#include <SDL2\SDL.h>
+#include <SDL2/SDL.h>
 #include <complex>
 #include <string>
 
@@ -117,6 +117,15 @@ int main(int argc, char *argv[]) {
         
       }
     }
+    
+    // // Add r, g, and b values into pixels array
+    // #pragma omp for collapse(2)
+    // for (int y = 0; y < HEIGHT; y++) {
+    //   for (int x = 0; x < WIDTH; x++) {
+    //     uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r_values[y * WIDTH + x], g_values[y * WIDTH + x], b_values[y * WIDTH + x]);
+    //     pixels[y * WIDTH + x] = color;
+    //   }
+    // }
     
 
     // Render the texture to the screen

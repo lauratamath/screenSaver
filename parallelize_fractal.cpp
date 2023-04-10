@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <SDL2\SDL.h>
 #include <complex>
-#include <omp.h>
+// #include <omp.h>
 #include <string>
 
 const int WIDTH = 640, HEIGHT = 480, MAX_ITERATIONS = 10;
@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
 
   bool running = true;
 
-  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
+  // SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
   
-  uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
+  // uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
 
 
   // Lifecicle
@@ -73,15 +73,17 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // allocate memory for r, g, and b with one element per pixel
-    int *r_values = new int[WIDTH * HEIGHT];
-    int *g_values = new int[WIDTH * HEIGHT];
-    int *b_values = new int[WIDTH * HEIGHT];
+    // avoiding the overhead of allocating and deallocating memory repeatedly with memory pooling
 
-    // Iterate each pixel
+    // allocate memory for pixels
+    uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
+
+    // iterate each pixel
     #pragma omp parallel for
-    for (int y = 0; y < HEIGHT; y++) {
-      for (int x = 0; x < WIDTH; x++) {
+    for (int i = 0; i < WIDTH * HEIGHT; i++) {
+        int x = i % WIDTH;
+        int y = i / WIDTH;
+
         // scaled_value = (value - min) / (max - min) * (new_max - new_min) + new_min
         double zx = (1.0 * x - WIDTH / 2.0) / (WIDTH / 4.0);
         double zy = (1.0 * y - HEIGHT / 2.0) / (HEIGHT / 4.0);
@@ -91,72 +93,74 @@ int main(int argc, char *argv[]) {
         double tolerance = 0.01;
 
         int iter = 0;
-
-        int r = 0;
-        int g = 0;
-        int b = 0;
+        int r = 0, g = 0, b = 0;
+        uint32_t color = 0;
 
         while (iter < MAX_ITERATIONS) {
-          z -= a * (func(z) / deriv(z));
+            z -= a * (func(z) / deriv(z));
 
-          std::complex<double> rdiff = z - rootOne;
-          std::complex<double> gdiff = z - rootTwo;
-          std::complex<double> bdiff = z - rootThree;
+            std::complex<double> rdiff = z - rootOne;
+            std::complex<double> gdiff = z - rootTwo;
+            std::complex<double> bdiff = z - rootThree;
 
-          if (std::norm(rdiff.real()) < tolerance && std::norm(rdiff.imag()) < tolerance) {
-            r = 255 - iter % 255;
-            break;
-          }
-          else if (std::norm(gdiff.real()) < tolerance && std::norm(gdiff.imag()) < tolerance) {
-            g = 255 - iter % 255;
-            break;
-          }
-          else if (std::norm(bdiff.real()) < tolerance && std::norm(bdiff.imag()) < tolerance) {
-            b = 255 - iter % 255;
-            break;
-          }
-          iter++;
+            if (std::norm(rdiff.real()) < tolerance && std::norm(rdiff.imag()) < tolerance) {
+                r = 255 - iter % 255;
+                break;
+            }
+            else if (std::norm(gdiff.real()) < tolerance && std::norm(gdiff.imag()) < tolerance) {
+                g = 255 - iter % 255;
+                break;
+            }
+            else if (std::norm(bdiff.real()) < tolerance && std::norm(bdiff.imag()) < tolerance) {
+                b = 255 - iter % 255;
+                break;
+            }
+            iter++;
         }
 
-        r_values[y * WIDTH + x] = r;
-        g_values[y * WIDTH + x] = g;
-        b_values[y * WIDTH + x] = b;
-      }
+        // r, g, and b into a single 32-bit color value
+        color |= (r << 16) | (g << 8) | b;
+
+        // allocate color in the pixels array
+        pixels[i] = color;
     }
 
-    // Add r, g, and b values into pixels array
-    #pragma omp parallel for
-    for (int y = 0; y < HEIGHT; y++) {
-      for (int x = 0; x < WIDTH; x++) {
-        uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r_values[y * WIDTH + x], g_values[y * WIDTH + x], b_values[y * WIDTH + x]);
-        pixels[y * WIDTH + x] = color;
-      }
-    }
-    
-    delete[] r_values;
-    delete[] g_values;
-    delete[] b_values;
-    
-    
+    // Create a texture from the pixels array
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT);
 
-    // Render the texture to the screen
-    SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
+    void* texture_pixels;
+    int pitch;
+
+    SDL_LockTexture(texture, NULL, &texture_pixels, &pitch);
+    memcpy(texture_pixels, pixels, sizeof(uint32_t) * WIDTH * HEIGHT);
+    SDL_UnlockTexture(texture);
+
+    // Render the texture
     SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+
+    // Free memory
+    delete[] pixels;
+
 
     // funcC += 0.01;
     a += 0.01;
     
     // Debug
     // std::cout << "A: " << a << std::endl;
+
+    double end_time = SDL_GetTicks();
+    double elapsed_time = end_time - start_time;
+    double fps = 1000.0 / elapsed_time;
+    std::cout << "FPS: " << fps << std::endl;
   }
 
-  SDL_UnlockTexture(texture);
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
 
   return EXIT_SUCCESS;
 }
+
 
