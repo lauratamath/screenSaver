@@ -3,13 +3,15 @@
 #include <SDL2\SDL.h>
 #include <complex>
 
-const int WIDTH = 800, HEIGHT = 600, MAX_ITERATIONS = 100;
+const int WIDTH = 800, HEIGHT = 600, MAX_ITERATIONS = 10;
 // const double minBound = -4.0, maxBound = 4.0;
+double funcC = 1.0;
+double a = 2.0;
 
 
 std::complex<double> func(std::complex<double> x) {
   // std::complex<double> realUnit(1,0);
-  return x * x * x - 1.0; // x^3 - 1
+  return x * x * x - funcC; // x^3 - 1
 }
 
 std::complex<double> deriv(std::complex<double> x) {
@@ -27,7 +29,7 @@ int main(int argc, char *argv[]) {
   SDL_Window *window;
   SDL_Renderer *renderer;
   
-  SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_OPENGL|SDL_WINDOW_BORDERLESS, &window, &renderer);
+  SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_BORDERLESS, &window, &renderer);
 
   if (NULL == window) {
     std::cout << "Could not create window: "<< SDL_GetError() << std::endl;
@@ -38,9 +40,9 @@ int main(int argc, char *argv[]) {
 
   bool running = true;
 
-  // SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
+  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
   
-  // uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
+  uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
 
 
   // Lifecicle
@@ -67,8 +69,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Clear the renderer
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    // SDL_RenderClear(renderer);
 
     // Iterate each pixel
     for (int x = 0; x < WIDTH; x++) {
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
         int b = 0;
 
         while (iter < MAX_ITERATIONS) {
-          z -= func(z) / deriv(z);
+          z -= a * (func(z) / deriv(z));
 
           std::complex<double> rdiff = z - rootOne;
           std::complex<double> gdiff = z - rootTwo;
@@ -116,26 +118,35 @@ int main(int argc, char *argv[]) {
           iter++;
         }
         // std::cout << "mappedx: " << mappedx << std::endl;
-        SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-        SDL_RenderDrawPoint(renderer, x, y);
+        // SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+        // SDL_RenderDrawPoint(renderer, x, y);
         // Map the number of iterations to a color
-        // uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), iter % 256, iter % 256, iter % 256);
-        // pixels[y * WIDTH + x] = color;
+        uint32_t color = SDL_MapRGB(SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888), r, g, b);
+        pixels[y * WIDTH + x] = color;
       }
       // break;
     }
     
     // Present the renderer
-    SDL_RenderPresent(renderer);
+    // SDL_RenderPresent(renderer);
     // break;
+    // Update the texture with the pixel data
+    SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
+    // Render the texture to the screen
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    SDL_RenderPresent(renderer);
+
+    // funcC += 0.01;
+    a += 0.01;
   }
 
-  // Update the texture with the pixel data
+  // // Update the texture with the pixel data
   // SDL_UpdateTexture(texture, nullptr, pixels, WIDTH * sizeof(uint32_t));
-  // Render the texture to the screen
+  // // Render the texture to the screen
   // SDL_RenderClear(renderer);
   // SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-  SDL_RenderPresent(renderer);
+  // SDL_RenderPresent(renderer);
   // SDL_Delay(3000);
 
   SDL_DestroyRenderer(renderer);
