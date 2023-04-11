@@ -1,6 +1,7 @@
+
 #include <iostream>
 #include <stdlib.h>
-#include <SDL2\SDL.h>
+#include <SDL2/SDL.h>
 #include <complex>
 // #include <omp.h>
 #include <string>

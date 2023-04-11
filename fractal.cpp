@@ -137,6 +137,11 @@ int main(int argc, char *argv[]) {
     // funcC += 0.01;
     a += 0.01;
     
+    double end_time = SDL_GetTicks();
+    double elapsed_time = end_time - start_time;
+    double fps = 1000.0 / elapsed_time;
+    std::cout << "FPS: " << fps << std::endl;
+    
     // Debug
     // std::cout << "A: " << a << std::endl;
   }
