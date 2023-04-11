@@ -3,6 +3,8 @@
 #include <SDL2/SDL.h>
 #include <complex>
 #include <string>
+#include <ctime>
+
 
 const int WIDTH = 640, HEIGHT = 480, MAX_ITERATIONS = 10;
 // const double minBound = -4.0, maxBound = 4.0;
@@ -29,6 +31,7 @@ std::complex<double> rootTwo(-0.5, sqrt(3)/2);
 std::complex<double> rootThree(-0.5, -sqrt(3)/2);
 
 int main(int argc, char *argv[]) {
+    clock_t start = clock();
 
   if (argc > 1) {
     try {
@@ -183,6 +186,9 @@ int main(int argc, char *argv[]) {
   SDL_DestroyWindow(window);
   SDL_Quit();
 
+  clock_t end = clock();
+  double elapsed_time = static_cast<double>(end - start) / CLOCKS_PER_SEC;
+  std::cout << "Execution time: " << elapsed_time << "\n";  
   return EXIT_SUCCESS;
 }
 
