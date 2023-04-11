@@ -7,7 +7,11 @@
 const int WIDTH = 640, HEIGHT = 480, MAX_ITERATIONS = 10;
 // const double minBound = -4.0, maxBound = 4.0;
 double funcC = 1.0;
-double a = 0.1;
+double a = 0.1; // Should be between -0.5 and 5.5
+double maxa = 5.5;
+double mina = -0.5;
+bool ascending = true;
+double step = 0.01;
 
 
 std::complex<double> func(std::complex<double> x) {
@@ -25,6 +29,28 @@ std::complex<double> rootTwo(-0.5, sqrt(3)/2);
 std::complex<double> rootThree(-0.5, -sqrt(3)/2);
 
 int main(int argc, char *argv[]) {
+
+  if (argc > 1) {
+    try {
+      a = std::stod(argv[1]);
+    } catch (const std::exception& e) {
+      std::cout << "Bad parameter, using default a = 1.0"<< std::endl;
+    }
+  }
+
+  std::string stepSize;
+
+  std::cout << "Please, enter a step size (value between -0.5 and 0.5): ";
+  std::cin >> stepSize;
+
+  if (stepSize != "") {
+    try {
+      step = std::stod(stepSize);
+    } catch (const std::exception& e) {
+      std::cout << "Bad parameter, using default step = 0.01"<< std::endl;
+    }
+  }
+
   SDL_Init(SDL_INIT_EVERYTHING);
 
   SDL_Window *window = SDL_CreateWindow("Newtons Fractal", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI);
@@ -135,7 +161,13 @@ int main(int argc, char *argv[]) {
     SDL_RenderPresent(renderer);
 
     // funcC += 0.01;
-    a += 0.01;
+    a = ascending ? a + step : a - step;
+    
+    if (a >= maxa) {
+      ascending = false;
+    } else if (a <= mina) {
+      ascending = true;
+    }
     
     double end_time = SDL_GetTicks();
     double elapsed_time = end_time - start_time;

@@ -3,13 +3,18 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 #include <complex>
-// #include <omp.h>
+#include <omp.h>
 #include <string>
+#include <time.h>
 
 const int WIDTH = 640, HEIGHT = 480, MAX_ITERATIONS = 10;
 // const double minBound = -4.0, maxBound = 4.0;
 double funcC = 1.0;
-double a = 0.1;
+double a = 0.1; // Should be between -0.5 and 5.5
+double maxa = 5.5;
+double mina = -0.5;
+bool ascending = true;
+double step = 0.01;
 
 
 std::complex<double> func(std::complex<double> x) {
@@ -27,6 +32,30 @@ std::complex<double> rootTwo(-0.5, sqrt(3)/2);
 std::complex<double> rootThree(-0.5, -sqrt(3)/2);
 
 int main(int argc, char *argv[]) {
+
+  if (argc > 1) {
+    try {
+      a = std::stod(argv[1]);
+    } catch (const std::exception& e) {
+      std::cout << "Bad parameter, using default a = 1.0"<< std::endl;
+    }
+  }
+
+  std::string stepSize;
+
+  std::cout << "Please, enter a step size (value between -0.5 and 0.5): ";
+  std::cin >> stepSize;
+
+  if (stepSize != "") {
+    try {
+      step = std::stod(stepSize);
+    } catch (const std::exception& e) {
+      std::cout << "Bad parameter, using default step = 0.01"<< std::endl;
+    }
+  }
+
+  // Profiling
+  // clock_t start = clock();
   SDL_Init(SDL_INIT_EVERYTHING);
 
   SDL_Window *window = SDL_CreateWindow("Newtons Fractal", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_ALLOW_HIGHDPI);
@@ -46,7 +75,6 @@ int main(int argc, char *argv[]) {
   // SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, WIDTH, HEIGHT);
   
   // uint32_t* pixels = new uint32_t[WIDTH * HEIGHT];
-
 
   // Lifecicle
   while ( running ) {
@@ -106,14 +134,17 @@ int main(int argc, char *argv[]) {
 
             if (std::norm(rdiff.real()) < tolerance && std::norm(rdiff.imag()) < tolerance) {
                 r = 255 - iter % 255;
+                // r = (int)((1-iter/MAX_ITERATIONS) * 255);
                 break;
             }
             else if (std::norm(gdiff.real()) < tolerance && std::norm(gdiff.imag()) < tolerance) {
                 g = 255 - iter % 255;
+                // g = (int)((1-iter/MAX_ITERATIONS) * 255);
                 break;
             }
             else if (std::norm(bdiff.real()) < tolerance && std::norm(bdiff.imag()) < tolerance) {
                 b = 255 - iter % 255;
+                // b = (int)((1-iter/MAX_ITERATIONS) * 255);
                 break;
             }
             iter++;
@@ -144,18 +175,27 @@ int main(int argc, char *argv[]) {
     // Free memory
     delete[] pixels;
 
-
-    // funcC += 0.01;
-    a += 0.01;
+    #pragma omp critical
+    a = ascending ? a + step : a - step;
     
-    // Debug
-    // std::cout << "A: " << a << std::endl;
+    if (a >= maxa) {
+      ascending = false;
+    } else if (a <= mina) {
+      ascending = true;
+    }
 
     double end_time = SDL_GetTicks();
     double elapsed_time = end_time - start_time;
     double fps = 1000.0 / elapsed_time;
     std::cout << "FPS: " << fps << std::endl;
   }
+
+  // Profiling
+  // clock_t end = clock();
+
+  // double total_time = static_cast<double>(end - start)/ CLOCKS_PER_SEC;
+
+  // std::cout<< "Execution Time for 1 parallel iteration: "<< total_time << std::endl;
 
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
